@@ -1,0 +1,11 @@
+OpenRouter Chat Logo
+
+Create a logo image named "logo.png" for the project and place it in this directory.
+
+Recommended specifications:
+- Size: 512x512 pixels (or at least 180x180 for app display)
+- Format: PNG with transparency
+- Style: Minimalist design with a chat bubble and AI symbol
+- Colors: Use the app's primary color (#128C7E) and secondary color (#075E54)
+
+The logo will be used in the README and potentially as the app icon. 

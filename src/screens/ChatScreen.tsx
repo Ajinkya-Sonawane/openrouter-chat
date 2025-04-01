@@ -1,0 +1,535 @@
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  View,
+  FlatList,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Text,
+  Alert,
+  Linking,
+  TouchableOpacity,
+  Animated
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { COLORS, URLS } from '../constants';
+import { sendMessage, refreshApiKey, checkApiKeyStatus } from '../services/api';
+import { getChats, saveChat } from '../services/storage';
+import { getApiKey } from '../services/settings';
+import { Chat, Message } from '../types';
+import { RootStackParamList } from '../navigation';
+import MessageBubble from '../components/MessageBubble';
+import MessageInput from '../components/MessageInput';
+import TypingIndicator from '../components/TypingIndicator';
+import { eventEmitter, EVENT_TYPES } from '../utils/events';
+import ModelSwitch from '../components/ModelSwitch';
+
+type ChatScreenProps = {
+  navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
+  route: RouteProp<RootStackParamList, 'Chat'>;
+};
+
+const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
+  const [chat, setChat] = useState<Chat | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [apiKeyMissing, setApiKeyMissing] = useState(false);
+  const [waitingForResponse, setWaitingForResponse] = useState(false);
+  
+  const flatListRef = useRef<FlatList>(null);
+  const typingOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    console.log('ChatScreen mounted with params:', route.params);
+    
+    // Check API key status
+    checkApiKeyStatus();
+    
+    // Listen for API key changes
+    const apiKeyChangedUnsubscribe = eventEmitter.on(
+      EVENT_TYPES.API_KEY_CHANGED,
+      (hasKey: boolean) => {
+        console.log('API key changed event received:', hasKey ? 'Key set' : 'Key not set');
+        setApiKeyMissing(!hasKey);
+      }
+    );
+    
+    // Check if we have a chatId (existing chat) or modelId (new chat)
+    try {
+      if ('chatId' in route.params) {
+        console.log('Loading existing chat with ID:', route.params.chatId);
+        loadExistingChat(route.params.chatId);
+      } else if ('modelId' in route.params && 'modelName' in route.params) {
+        console.log('Creating new chat with model:', route.params.modelName);
+        createNewChat(route.params.modelId, route.params.modelName);
+      } else {
+        console.error('Invalid route params:', route.params);
+        setError('Invalid parameters. Cannot create or load chat.');
+      }
+    } catch (err) {
+      console.error('Error in chat initialization:', err);
+      setError('Failed to initialize chat');
+    }
+    
+    return () => {
+      apiKeyChangedUnsubscribe();
+    };
+  }, [route.params]);
+
+  useEffect(() => {
+    // Update the navigation title with the model name
+    if (chat) {
+      console.log('Setting navigation title to:', chat.modelName);
+      navigation.setOptions({
+        title: chat.modelName
+      });
+    }
+  }, [chat, navigation]);
+
+  // Fade in/out animation for the typing indicator
+  useEffect(() => {
+    if (waitingForResponse) {
+      Animated.timing(typingOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true
+      }).start();
+    } else {
+      Animated.timing(typingOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true
+      }).start();
+    }
+  }, [waitingForResponse, typingOpacity]);
+
+  const checkApiKeyStatus = async () => {
+    try {
+      // Only check API key status once
+      await refreshApiKey();
+      // Use direct check of cachedApiKey from api.ts
+      const hasApiKey = await getApiKey();
+      setApiKeyMissing(!hasApiKey);
+    } catch (err) {
+      console.error('Failed to check API key status:', err);
+      setApiKeyMissing(true);
+    }
+  };
+
+  const loadExistingChat = async (chatId: string) => {
+    try {
+      console.log('Loading chat from storage:', chatId);
+      const chats = await getChats();
+      console.log('Found chats:', chats.length);
+      const existingChat = chats.find(c => c.id === chatId);
+      
+      if (existingChat) {
+        console.log('Chat found:', existingChat.modelName);
+        setChat(existingChat);
+      } else {
+        console.error('Chat not found:', chatId);
+        setError('Chat not found');
+        navigation.goBack();
+      }
+    } catch (err) {
+      console.error('Error loading existing chat:', err);
+      setError('Failed to load chat data');
+    }
+  };
+
+  const createNewChat = async (modelId: string, modelName: string) => {
+    try {
+      console.log('Creating new chat for model:', modelId, modelName);
+      
+      const newChat: Chat = {
+        id: Math.random().toString(36).substring(2, 15),
+        modelId,
+        modelName,
+        messages: []
+      };
+      
+      console.log('New chat created with ID:', newChat.id);
+      setChat(newChat);
+      
+      console.log('Saving new chat to storage');
+      await saveChat(newChat);
+      console.log('Chat saved successfully');
+    } catch (err) {
+      console.error('Error creating new chat:', err);
+      setError('Failed to create new chat');
+      Alert.alert('Error', 'Failed to create new chat');
+    }
+  };
+
+  const showErrorAlert = (errorMessage: string) => {
+    // Check for specific error types
+    if (errorMessage.includes('Rate limit') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
+      Alert.alert(
+        'Rate Limit Exceeded',
+        'You have reached the usage limit for this model. Please try a different model or wait a while before trying again.',
+        [
+          { text: 'OK', style: 'default' },
+          { 
+            text: 'Change Model', 
+            onPress: () => navigation.navigate('ModelSelection')
+          }
+        ]
+      );
+      return;
+    }
+    
+    if (errorMessage.includes('API key')) {
+      Alert.alert(
+        'API Key Required',
+        'You need to set your OpenRouter API key in Settings to send messages.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Go to Settings', 
+            onPress: () => navigation.navigate('Settings')
+          }
+        ]
+      );
+      return;
+    }
+    
+    // Generic error
+    Alert.alert(
+      'Error',
+      errorMessage,
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
+
+  const handleSendMessage = async (textMessage: string) => {
+    try {
+      if (!textMessage.trim()) return;
+      
+      console.log('Sending message:', textMessage);
+      setLoading(true);
+      setError(null);
+      
+      // Create a new message
+      const newMessage: Message = {
+        id: Date.now().toString(),
+        content: textMessage,
+        role: 'user',
+        timestamp: Date.now(),
+      };
+      
+      // Add the message to the chat
+      const updatedMessages = [...chat!.messages, newMessage];
+      const updatedChat: Chat = {
+        ...chat!,
+        messages: updatedMessages,
+        lastMessage: newMessage.content,
+        lastMessageTime: newMessage.timestamp
+      };
+      
+      setChat(updatedChat);
+      await saveChat(updatedChat);
+      
+      // Show the waiting animation
+      setWaitingForResponse(true);
+      
+      // Scroll to the bottom to show the typing indicator
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+      
+      // Log chat info for debugging
+      console.log('Chat model ID:', chat!.modelId);
+      console.log('Number of messages in conversation:', updatedMessages.length);
+      
+      try {
+        // Send the message to the API and get the response
+        const responseMessage = await sendMessage(chat!.modelId, updatedMessages);
+        
+        // Hide the waiting animation
+        setWaitingForResponse(false);
+        
+        const finalMessages = [...updatedMessages, responseMessage];
+        const finalChat: Chat = {
+          ...chat!,
+          messages: finalMessages,
+          lastMessage: responseMessage.content,
+          lastMessageTime: responseMessage.timestamp
+        };
+        
+        setChat(finalChat);
+        await saveChat(finalChat);
+        
+        // Scroll to the bottom to show the new message
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      } catch (apiError) {
+        console.error('API Error during message sending:', apiError);
+        // Hide the waiting animation
+        setWaitingForResponse(false);
+        
+        const errorMsg = apiError instanceof Error ? apiError.message : 'Failed to send message';
+        setError(`API Error: ${errorMsg}`);
+        
+        // Show appropriate alert based on error type
+        showErrorAlert(errorMsg);
+      }
+    } catch (err) {
+      console.error('Error in message handling flow:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Failed to send message';
+      setError(`Error: ${errorMsg}`);
+      
+      // Hide the waiting animation
+      setWaitingForResponse(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderMessageItem = ({ item }: { item: Message }) => (
+    <MessageBubble message={item} />
+  );
+
+  const handleGetApiKey = () => {
+    navigation.navigate('Settings');
+  };
+
+  const handleModelSwitch = async (modelId: string, modelName: string) => {
+    try {
+      setLoading(true);
+      
+      // Create a new chat with the selected model, transferring existing messages
+      const newChat: Chat = {
+        id: Math.random().toString(36).substring(2, 15),
+        modelId,
+        modelName,
+        messages: chat ? [...chat.messages] : [],
+        lastMessage: chat?.lastMessage,
+        lastMessageTime: chat?.lastMessageTime
+      };
+      
+      // Save the new chat and update state
+      await saveChat(newChat);
+      setChat(newChat);
+      
+      // Update navigation title
+      navigation.setOptions({
+        title: modelName
+      });
+      
+      // Show success message
+      Alert.alert('Model Changed', `Changed to ${modelName} successfully`);
+    } catch (err) {
+      console.error('Error switching models:', err);
+      setError('Failed to switch models');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!chat) {
+    return (
+      <SafeAreaView style={styles.centered} edges={['bottom']}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Initializing chat...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        {error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{error}</Text>
+            {error.includes('Rate limit') && (
+              <View style={styles.modelSwitchContainer}>
+                <Text style={styles.modelSwitchText}>Switch to a different model:</Text>
+                <ModelSwitch
+                  currentModelId={chat!.modelId}
+                  onModelSelect={handleModelSwitch}
+                />
+              </View>
+            )}
+          </View>
+        )}
+        
+        {apiKeyMissing && (
+          <View style={styles.apiKeyWarning}>
+            <Text style={styles.apiKeyWarningText}>
+              OpenRouter API key is missing. You need to add your API key to send messages.
+            </Text>
+            <View style={styles.apiKeyButtonRow}>
+              <TouchableOpacity 
+                style={styles.apiKeyButton} 
+                onPress={() => Linking.openURL(URLS.OPENROUTER_KEYS_PAGE)}
+              >
+                <Text style={styles.apiKeyButtonText}>Get API Key</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.apiKeyButton, styles.settingsButton]} 
+                onPress={handleGetApiKey}
+              >
+                <Text style={styles.apiKeyButtonText}>Open Settings</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        
+        <FlatList
+          ref={flatListRef}
+          data={chat.messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessageItem}
+          contentContainerStyle={styles.messageList}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Send a message to start chatting</Text>
+            </View>
+          }
+          ListFooterComponent={
+            waitingForResponse ? (
+              <Animated.View 
+                style={[
+                  styles.typingContainer, 
+                  { opacity: typingOpacity }
+                ]}
+              >
+                <View style={styles.typingBubble}>
+                  <TypingIndicator />
+                </View>
+              </Animated.View>
+            ) : <View style={styles.messageListFooter} />
+          }
+        />
+        
+        <MessageInput 
+          onSendMessage={handleSendMessage}
+          loading={loading}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: COLORS.gray,
+  },
+  errorContainer: {
+    padding: 10,
+    backgroundColor: '#ffcccc',
+    borderRadius: 5,
+    margin: 10,
+  },
+  errorText: {
+    color: '#cc0000',
+    textAlign: 'center',
+  },
+  apiKeyWarning: {
+    padding: 15,
+    backgroundColor: '#fff3cd',
+    borderRadius: 5,
+    margin: 10,
+    alignItems: 'center',
+  },
+  apiKeyWarningText: {
+    color: '#856404',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  apiKeyButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  apiKeyButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
+  },
+  settingsButton: {
+    backgroundColor: COLORS.secondary,
+  },
+  apiKeyButtonText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+  },
+  messageList: {
+    padding: 10,
+    paddingBottom: 20,
+  },
+  messageListFooter: {
+    height: 10,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 50,
+  },
+  emptyText: {
+    color: COLORS.gray,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  typingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    alignSelf: 'flex-start',
+  },
+  typingBubble: {
+    backgroundColor: COLORS.bubble.assistant,
+    borderRadius: 16,
+    borderTopLeftRadius: 0,
+    padding: 5,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  modelSwitchContainer: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  modelSwitchText: {
+    fontSize: 14,
+    marginBottom: 8,
+    color: '#856404',
+  },
+});
+
+export default ChatScreen; 

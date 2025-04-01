@@ -1,28 +1,25 @@
 {
   "expo": {
-    "name": "OpenRouterChat",
-    "slug": "OpenRouterChat",
+    "name": "OpenRouter Chat",
+    "slug": "open-router-chat",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#128C7E"
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "description": "A WhatsApp-style chat application for conversing with LLM models using OpenRouter API.",
+    "newArchEnabled": true
   }
 }
