@@ -28,6 +28,25 @@
   </table>
 </div>
 
+## 👨‍💻 Contributors
+
+<div align="center">
+  <a href="https://github.com/Ajinkya-Sonawane/openrouter-chat/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=Ajinkya-Sonawane/openrouter-chat" alt="Contributors" />
+  </a>
+</div>
+
+<div align="center">
+  <p>
+    <a href="https://github.com/Ajinkya-Sonawane/openrouter-chat/graphs/contributors">
+      View all contributors
+    </a>
+  </p>
+  <p>
+    <i>Want to be a contributor? See our <a href="#🤝-contributing">contribution guidelines</a>!</i>
+  </p>
+</div>
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -42,7 +61,7 @@
 1. Clone this repository
 
 ```bash
-git clone https://github.com/your-username/openrouter-chat.git
+git clone https://github.com/Ajinkya-Sonawane/openrouter-chat.git
 cd openrouter-chat
 ```
 
@@ -81,7 +100,7 @@ For development purposes, you can configure environment variables:
 
 All URLs in the app are stored in a central configuration file (`src/constants/index.ts`), making it easy to update them as needed.
 
-## �� Technology Stack
+## 🚀 Technology Stack
 
 - **Framework**: [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
@@ -125,7 +144,7 @@ We welcome contributions to OpenRouter Chat! Here's how you can help:
 
 ### Development Process
 
-1. Check the [Issues](https://github.com/your-username/openrouter-chat/issues) for tasks to work on
+1. Check the [Issues](https://github.com/Ajinkya-Sonawane/openrouter-chat/issues) for tasks to work on
 2. Comment on an issue to express your interest before starting work
 3. Reference the issue number in your commit messages
 4. Create a detailed PR description explaining your changes and the problem they solve
@@ -146,7 +165,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [OpenRouter](https://openrouter.ai/) for providing access to multiple AI models
 - [React Native](https://reactnative.dev/) and [Expo](https://expo.dev/) communities
-- All [contributors](https://github.com/your-username/openrouter-chat/contributors) who have helped improve this project
+- All [contributors](https://github.com/Ajinkya-Sonawane/openrouter-chat/contributors) who have helped improve this project
 
 ---
 
