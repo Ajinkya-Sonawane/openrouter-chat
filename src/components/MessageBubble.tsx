@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, LayoutChangeEvent, TouchableOpacity } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import Toast from 'react-native-toast-message';
 import { COLORS } from '../constants';
 import { Message } from '../types';
 import FormattedText from './FormattedText';
+import { MaterialIcons } from '@expo/vector-icons';
 
 interface MessageBubbleProps {
   message: Message;
@@ -25,6 +28,27 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const hasNotifiedRef = useRef(false);
   const contentRef = useRef<View>(null);
   const messageIdRef = useRef(message.id);
+
+  // Handle copying message content to clipboard
+  const copyToClipboard = useCallback(async () => {
+    try {
+      await Clipboard.setStringAsync(message.content);
+      Toast.show({
+        type: 'success',
+        text1: 'Copied to clipboard',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to copy message',
+        position: 'bottom',
+        visibilityTime: 2000,
+      });
+    }
+  }, [message.content]);
 
   // Memoize the toggle function to prevent recreating it on every render
   // Now also notifies parent about expansion change
@@ -83,6 +107,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         isUser ? styles.userBubble : styles.assistantBubble,
       ]}
     >
+      <View style={styles.bubbleHeader}>
+        <TouchableOpacity 
+          style={styles.copyButton}
+          onPress={copyToClipboard}
+          accessibilityLabel="Copy message"
+        >
+          <MaterialIcons name="content-copy" size={16} color={COLORS.primary} />
+        </TouchableOpacity>
+      </View>
+      
       <View 
         ref={contentRef}
         style={[
@@ -138,6 +172,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: COLORS.bubble.assistant,
     borderTopLeftRadius: 0,
+  },
+  bubbleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 5,
+  },
+  copyButton: {
+    padding: 4,
+    borderRadius: 4,
+    backgroundColor: 'rgba(0,0,0,0.05)',
   },
   messageText: {
     fontSize: 16,
