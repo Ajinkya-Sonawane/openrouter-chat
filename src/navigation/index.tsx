@@ -48,7 +48,7 @@ const AppNavigator = () => {
           name="ChatList" 
           component={ChatListScreen} 
           options={({ navigation }) => ({
-            title: 'OpenRouter Chat',
+            title: 'OpenRouterChat',
             headerRight: () => (
               <TouchableOpacity
                 onPress={() => navigation.navigate('Settings')}

@@ -169,11 +169,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     if (errorMessage.includes('Rate limit') || errorMessage.includes('RESOURCE_EXHAUSTED')) {
       Alert.alert(
         'Rate Limit Exceeded',
-        'You have reached the usage limit for this model. Please try a different model or wait a while before trying again.',
+        'You have reached the usage limit for this model. Would you like to start a new chat with a different model?',
         [
-          { text: 'OK', style: 'default' },
+          { text: 'Cancel', style: 'cancel' },
           { 
-            text: 'Change Model', 
+            text: 'Select New Model', 
             onPress: () => navigation.navigate('ModelSelection')
           }
         ]
@@ -301,7 +301,14 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     try {
       setLoading(true);
       
-      // Create a new chat with the selected model, transferring existing messages
+      // If this was triggered from a rate limit error, create a completely new chat
+      if (error?.includes('Rate limit')) {
+        // Navigate to a new chat with the selected model
+        navigation.replace('Chat', { modelId, modelName });
+        return;
+      }
+      
+      // Otherwise, just change the model for the current chat (keeping existing messages)
       const newChat: Chat = {
         id: Math.random().toString(36).substring(2, 15),
         modelId,
@@ -351,10 +358,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
             <Text style={styles.errorText}>{error}</Text>
             {error.includes('Rate limit') && (
               <View style={styles.modelSwitchContainer}>
-                <Text style={styles.modelSwitchText}>Switch to a different model:</Text>
+                <Text style={styles.modelSwitchText}>
+                  You've reached the rate limit for this model. Start a new chat with a different model:
+                </Text>
                 <ModelSwitch
                   currentModelId={chat!.modelId}
                   onModelSelect={handleModelSwitch}
+                  isRateLimitError={true}
                 />
               </View>
             )}

@@ -15,6 +15,7 @@ import { DEFAULT_MODELS } from '../constants';
 interface ModelSwitchProps {
   currentModelId: string;
   onModelSelect: (modelId: string, modelName: string) => void;
+  isRateLimitError?: boolean;
 }
 
 interface Model {
@@ -25,7 +26,7 @@ interface Model {
   image?: string;
 }
 
-const ModelSwitch: React.FC<ModelSwitchProps> = ({ currentModelId, onModelSelect }) => {
+const ModelSwitch: React.FC<ModelSwitchProps> = ({ currentModelId, onModelSelect, isRateLimitError = false }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(false);
@@ -83,7 +84,9 @@ const ModelSwitch: React.FC<ModelSwitchProps> = ({ currentModelId, onModelSelect
         style={styles.switchButton}
         onPress={() => setModalVisible(true)}
       >
-        <Text style={styles.switchButtonText}>Change Model</Text>
+        <Text style={styles.switchButtonText}>
+          {isRateLimitError ? "New Chat with Different Model" : "Change Model"}
+        </Text>
       </TouchableOpacity>
 
       <Modal
@@ -95,7 +98,9 @@ const ModelSwitch: React.FC<ModelSwitchProps> = ({ currentModelId, onModelSelect
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select a Model</Text>
+              <Text style={styles.modalTitle}>
+                {isRateLimitError ? "Start New Chat with Model" : "Select a Model"}
+              </Text>
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
                 style={styles.closeButton}
@@ -103,6 +108,14 @@ const ModelSwitch: React.FC<ModelSwitchProps> = ({ currentModelId, onModelSelect
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
             </View>
+
+            {isRateLimitError && (
+              <View style={styles.rateLimitInfoContainer}>
+                <Text style={styles.rateLimitInfoText}>
+                  Due to rate limits on the current model, you'll start a new chat with your selected model.
+                </Text>
+              </View>
+            )}
 
             {loading ? (
               <View style={styles.loadingContainer}>
@@ -240,6 +253,17 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: COLORS.white,
     fontWeight: 'bold',
+  },
+  rateLimitInfoContainer: {
+    padding: 12,
+    backgroundColor: '#fff3cd',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.lightGray,
+  },
+  rateLimitInfoText: {
+    fontSize: 14,
+    color: '#856404',
+    textAlign: 'center',
   },
 });
 

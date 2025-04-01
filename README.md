@@ -20,9 +20,10 @@
 <div align="center">
   <table>
     <tr>
-      <td><img src="assets/screenshots/chat-screen.png" alt="Chat Screen" width="250"/></td>
-      <td><img src="assets/screenshots/model-selection.png" alt="Model Selection" width="250"/></td>
-      <td><img src="assets/screenshots/settings.png" alt="Settings" width="250"/></td>
+	<td><img src="assets/screenshots/chat-list.png" alt="Chat List" width="250"/></td>  
+	<td><img src="assets/screenshots/model-selection.png" alt="Model Selection" width="250"/></td>
+	<td><img src="assets/screenshots/chat-screen.png" alt="Chat Screen" width="250"/></td>
+	<td><img src="assets/screenshots/settings.png" alt="Settings" width="250"/></td>
     </tr>
   </table>
 </div>
@@ -39,12 +40,14 @@
 ### Installation
 
 1. Clone this repository
+
 ```bash
 git clone https://github.com/your-username/openrouter-chat.git
 cd openrouter-chat
 ```
 
 2. Install dependencies
+
 ```bash
 npm install
 # or
@@ -52,10 +55,9 @@ yarn install
 ```
 
 3. Start the Expo development server
+
 ```bash
-npm run start
-# or
-yarn start
+npx expo start
 ```
 
 4. Scan the QR code with the Expo Go app on your mobile device
@@ -151,4 +153,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <div align="center">
   <p>If you find this project useful, please consider giving it a ⭐️ on GitHub!</p>
   <p>Made with ❤️ by the OpenRouter Chat team</p>
-</div> 
+</div>
