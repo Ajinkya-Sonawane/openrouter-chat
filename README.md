@@ -1,4 +1,4 @@
-# OpenRouter Chat
+# OpenRouterChat
 
 <div align="center">
   <img src="assets/logo.png" alt="OpenRouter Chat Logo" width="180"/>
