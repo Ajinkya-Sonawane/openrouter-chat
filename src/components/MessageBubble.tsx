@@ -1,23 +1,117 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, LayoutChangeEvent, TouchableOpacity } from 'react-native';
 import { COLORS } from '../constants';
 import { Message } from '../types';
+import FormattedText from './FormattedText';
 
 interface MessageBubbleProps {
   message: Message;
+  onContentRendered?: () => void;
+  onExpansionChange?: (expanded: boolean, messageId: string) => void;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
+const MAX_BUBBLE_HEIGHT = 300; // Maximum height for large message bubbles
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({ 
+  message, 
+  onContentRendered,
+  onExpansionChange 
+}) => {
   const isUser = message.role === 'user';
+  const [contentHeight, setContentHeight] = useState(0);
+  const [expanded, setExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [initialMeasurementComplete, setInitialMeasurementComplete] = useState(false);
+  const hasNotifiedRef = useRef(false);
+  const contentRef = useRef<View>(null);
+  const messageIdRef = useRef(message.id);
+
+  // Memoize the toggle function to prevent recreating it on every render
+  // Now also notifies parent about expansion change
+  const toggleExpanded = useCallback(() => {
+    setExpanded(prev => {
+      const newState = !prev;
+      // Notify parent component about expansion state change
+      if (onExpansionChange) {
+        onExpansionChange(newState, message.id);
+      }
+      return newState;
+    });
+  }, [message.id, onExpansionChange]);
+
+  // Handle layout event only once per message unless expanded state changes
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const height = event.nativeEvent.layout.height;
+    const width = event.nativeEvent.layout.width;
+
+    if (!initialMeasurementComplete || messageIdRef.current !== message.id) {
+      console.log(`MessageBubble layout event - height: ${height}, width: ${width}`);
+      
+      setContentHeight(height);
+      setHasOverflow(height > MAX_BUBBLE_HEIGHT);
+      setInitialMeasurementComplete(true);
+      messageIdRef.current = message.id;
+      
+      // Only notify once per message to prevent render loops
+      if (onContentRendered && !isUser && !hasNotifiedRef.current) {
+        hasNotifiedRef.current = true;
+        onContentRendered();
+      }
+    }
+  }, [message.id, initialMeasurementComplete, isUser, onContentRendered]);
+
+  // Reset state when message changes
+  useEffect(() => {
+    if (messageIdRef.current !== message.id) {
+      console.log('Message ID changed, resetting state');
+      setInitialMeasurementComplete(false);
+      setContentHeight(0);
+      setHasOverflow(false);
+      setExpanded(false);
+      hasNotifiedRef.current = false;
+      messageIdRef.current = message.id;
+    }
+  }, [message.id]);
+
+  // Add a log when rendering the component
+  console.log(`Rendering message: ${message.id}, role: ${message.role}, content length: ${message.content.length}`);
 
   return (
     <View
       style={[
         styles.messageBubble,
-        isUser ? styles.userBubble : styles.assistantBubble
+        isUser ? styles.userBubble : styles.assistantBubble,
       ]}
     >
-      <Text style={styles.messageText}>{message.content}</Text>
+      <View 
+        ref={contentRef}
+        style={[
+          expanded ? null : { maxHeight: hasOverflow ? MAX_BUBBLE_HEIGHT : undefined },
+          { overflow: 'hidden' }
+        ]} 
+        onLayout={handleLayout}
+      >
+        {isUser ? (
+          <Text style={styles.messageText}>{message.content}</Text>
+        ) : (
+          <FormattedText 
+            text={message.content} 
+            style={styles.messageText}
+          />
+        )}
+      </View>
+      
+      {hasOverflow && (
+        <TouchableOpacity 
+          style={styles.expandButton} 
+          onPress={toggleExpanded}
+        >
+          <Text style={styles.expandButtonText}>
+            {expanded ? 'Show Less' : 'Show More'}
+          </Text>
+        </TouchableOpacity>
+      )}
+      
       <Text style={styles.messageTime}>
         {new Date(message.timestamp).toLocaleTimeString([], {
           hour: '2-digit',
@@ -30,7 +124,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
 const styles = StyleSheet.create({
   messageBubble: {
-    maxWidth: '80%',
+    maxWidth: '85%', // Slightly wider to prevent wrapping issues
     padding: 10,
     borderRadius: 8,
     marginBottom: 10,
@@ -54,6 +148,18 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginTop: 5,
   },
+  expandButton: {
+    paddingVertical: 5,
+    alignItems: 'center',
+    marginTop: 5,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  expandButtonText: {
+    color: COLORS.primary,
+    fontWeight: '500',
+    fontSize: 12,
+  },
 });
 
-export default MessageBubble; 
+export default MessageBubble;

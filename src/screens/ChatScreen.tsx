@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   FlatList,
@@ -38,9 +38,38 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const [error, setError] = useState<string | null>(null);
   const [apiKeyMissing, setApiKeyMissing] = useState(false);
   const [waitingForResponse, setWaitingForResponse] = useState(false);
+  const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null);
   
   const flatListRef = useRef<FlatList>(null);
   const typingOpacity = useRef(new Animated.Value(0)).current;
+
+  // Create a more robust scroll function
+  const scrollToEndWithDelay = useCallback((immediate = false) => {
+    if (immediate) {
+      console.log('Scrolling to end immediately');
+      flatListRef.current?.scrollToEnd({ animated: false });
+      return;
+    }
+    
+    // Sequence of scroll attempts with increasing delays to ensure content is visible
+    console.log('Starting scroll sequence');
+    setTimeout(() => {
+      console.log('Scrolling attempt 1 (50ms)');
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 50);
+    setTimeout(() => {
+      console.log('Scrolling attempt 2 (300ms)');
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 300);
+    setTimeout(() => {
+      console.log('Scrolling attempt 3 (600ms)');
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 600);
+    setTimeout(() => {
+      console.log('Scrolling attempt 4 (1000ms)');
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }, 1000);
+  }, []);
 
   useEffect(() => {
     console.log('ChatScreen mounted with params:', route.params);
@@ -220,7 +249,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         timestamp: Date.now(),
       };
       
-      // Add the message to the chat
+      // Add the message to the chat - prepend for inverted list 
+      // (though we could still append and let inverted list handle it)
       const updatedMessages = [...chat!.messages, newMessage];
       const updatedChat: Chat = {
         ...chat!,
@@ -235,7 +265,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
       // Show the waiting animation
       setWaitingForResponse(true);
       
-      // Scroll to the bottom to show the typing indicator
+      // Scroll to the end to show the new message
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -262,7 +292,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
         setChat(finalChat);
         await saveChat(finalChat);
         
-        // Scroll to the bottom to show the new message
+        // Scroll to the end to show the new message
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: true });
         }, 100);
@@ -289,9 +319,53 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     }
   };
 
-  const renderMessageItem = ({ item }: { item: Message }) => (
-    <MessageBubble message={item} />
-  );
+  const handleMessageExpansion = useCallback((expanded: boolean, messageId: string) => {
+    console.log(`Message ${messageId} expansion changed to ${expanded}`);
+    
+    // Track which message is expanded for scrolling management
+    setExpandedMessageId(expanded ? messageId : null);
+    
+    // When a message expands, we need to scroll to make sure it's fully visible
+    if (expanded) {
+      // Find the index of the expanded message
+      const messageIndex = chat?.messages.findIndex(msg => msg.id === messageId) ?? -1;
+      
+      if (messageIndex >= 0) {
+        console.log(`Scrolling to ensure expanded message ${messageId} is visible`);
+        
+        // Use a slight delay to let the layout update first
+        setTimeout(() => {
+          // For inverted lists, we need to use scrollToIndex in a special way
+          flatListRef.current?.scrollToIndex({
+            index: messageIndex,
+            animated: true,
+            viewPosition: 0.5, // Try to center the item
+            viewOffset: 50,    // Add some padding
+          });
+        }, 100);
+      }
+    }
+  }, [chat?.messages]);
+
+  const renderMessageItem = ({ item }: { item: Message }) => {
+    return (
+      <MessageBubble 
+        message={item}
+        onContentRendered={() => {
+          // For non-inverted lists, we need to scroll when assistant messages render
+          if (item.role === 'assistant' && !expandedMessageId) {
+            console.log(`Message ${item.id} rendered, scrolling to ensure visibility`);
+            setTimeout(() => {
+              flatListRef.current?.scrollToEnd({ animated: true });
+            }, 300);
+          } else {
+            console.log(`Message ${item.id} rendered`);
+          }
+        }}
+        onExpansionChange={handleMessageExpansion}
+      />
+    );
+  };
 
   const handleGetApiKey = () => {
     navigation.navigate('Settings');
@@ -350,8 +424,9 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        enabled
       >
         {error && (
           <View style={styles.errorContainer}>
@@ -393,36 +468,74 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
           </View>
         )}
         
-        <FlatList
-          ref={flatListRef}
-          data={chat.messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessageItem}
-          contentContainerStyle={styles.messageList}
-          onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({ animated: true })
-          }
-          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Send a message to start chatting</Text>
-            </View>
-          }
-          ListFooterComponent={
-            waitingForResponse ? (
-              <Animated.View 
-                style={[
-                  styles.typingContainer, 
-                  { opacity: typingOpacity }
-                ]}
-              >
-                <View style={styles.typingBubble}>
-                  <TypingIndicator />
-                </View>
-              </Animated.View>
-            ) : <View style={styles.messageListFooter} />
-          }
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            ref={flatListRef}
+            data={chat.messages}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderMessageItem}
+            style={styles.messageList}
+            contentContainerStyle={{ paddingTop: 20, paddingBottom: 50 }}
+            inverted={false}
+            onContentSizeChange={() => {
+              // Only auto-scroll to end when no message is expanded
+              if (!expandedMessageId && chat.messages.length > 0) {
+                console.log('Content size changed - scrolling to end');
+                flatListRef.current?.scrollToEnd({ animated: false });
+              } else {
+                console.log('Content size changed - not scrolling (expanded message present)');
+              }
+            }}
+            onLayout={() => {
+              console.log('FlatList layout complete');
+              // Initial scroll to end when layout is ready
+              if (!expandedMessageId && chat.messages.length > 0) {
+                flatListRef.current?.scrollToEnd({ animated: false });
+              }
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Send a message to start chatting</Text>
+              </View>
+            }
+            ListFooterComponent={
+              waitingForResponse ? (
+                <Animated.View 
+                  style={[
+                    styles.typingContainer, 
+                    { opacity: typingOpacity }
+                  ]}
+                >
+                  <View style={styles.typingBubble}>
+                    <TypingIndicator />
+                  </View>
+                </Animated.View>
+              ) : <View style={styles.messageListFooter} />
+            }
+            showsVerticalScrollIndicator={true}
+            removeClippedSubviews={false}
+            maintainVisibleContentPosition={{
+              minIndexForVisible: 0,
+              autoscrollToTopThreshold: expandedMessageId ? 0 : 10
+            }}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            scrollIndicatorInsets={{ right: 1 }}
+            onScrollToIndexFailed={(info) => {
+              console.log('Failed to scroll to index:', info);
+              // Try again with some delay and different parameters
+              setTimeout(() => {
+                if (flatListRef.current) {
+                  flatListRef.current.scrollToIndex({
+                    index: info.index,
+                    animated: true,
+                    viewPosition: 0
+                  });
+                }
+              }, 300);
+            }}
+          />
+        </View>
         
         <MessageInput 
           onSendMessage={handleSendMessage}

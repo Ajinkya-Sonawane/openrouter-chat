@@ -41,6 +41,17 @@ Contains reusable UI components used throughout the app:
 - **MessageInput.tsx**: Text input component with send button for composing messages
 - **ChatListItem.tsx**: Individual item component used in the chat list
 - **TypingIndicator.tsx**: Animated dots that display while waiting for a response from the AI
+- **FormattedText.tsx**: Processes and renders markdown formatting in AI messages, including:
+  - Bold and italic text
+  - Inline and multi-line code blocks with syntax highlighting
+  - Numbered and bulleted lists (including nested lists)
+  - Links with proper styling and tap functionality
+  - Headers with different levels
+  - Blockquotes
+  - Images with captions
+  - Tables
+  - Horizontal rules
+  - Code syntax highlighting for multiple languages
 
 ### `/src/constants/`
 
@@ -178,6 +189,22 @@ The application integrates with the OpenRouter API through the `api.ts` service:
 - **refreshApiKey()**: Updates the API key used for requests
 - **initializeApiKey()**: Loads the API key from storage when the app starts
 - **getApiClient()**: Returns an Axios instance configured with the current API key
+
+## URL Management
+
+The application uses a centralized approach for managing URLs:
+
+- **Constants File**: All URLs are defined in `src/constants/index.ts` in the `URLS` object
+- **Categorization**: URLs are organized by type (API URLs, Web URLs, Image URLs)
+- **Environment Variables**: For production, URLs can be configured using environment variables
+- **No Hardcoding**: URLs are never hardcoded in components or services
+- **Maintainability**: This approach makes it easy to update URLs app-wide by changing a single constant
+
+URL types managed in the constants file:
+1. **API Endpoints**: Base URLs for API requests
+2. **Web Links**: External web pages that can be opened in the browser
+3. **Asset URLs**: Links to images and icons used in the application
+4. **Reference URLs**: GitHub repository and documentation links
 
 ## Security Considerations
 

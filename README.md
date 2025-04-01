@@ -12,6 +12,8 @@
 - **API Key Management**: Settings page to securely manage your OpenRouter API key
 - **Chat Management**: Create and maintain multiple conversations with different AI models
 - **Model Selection**: Browse and select from a variety of AI models with detailed information
+- **Rich Text Formatting**: Automatically formats markdown in AI responses including bold, italic, code blocks, and lists
+- **Syntax Highlighting**: Code blocks in AI responses include syntax highlighting for multiple programming languages
 - **Persistent History**: Chat history saved locally to your device
 - **Responsive Design**: Works on both iOS and Android devices
 
