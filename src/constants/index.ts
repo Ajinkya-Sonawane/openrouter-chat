@@ -9,6 +9,7 @@ export const URLS = {
   // Web URLs
   OPENROUTER_HOMEPAGE: 'https://openrouter.ai',
   OPENROUTER_KEYS_PAGE: 'https://openrouter.ai/keys',
+  OPENROUTER_MODEL_PAGE: 'https://openrouter.ai/models',
   APP_HTTP_REFERER: 'https://localhost', // Replace with your app URL when deployed
   GITHUB_REPO: 'https://github.com/Ajinkya-Sonawane/openrouter-chat',
   

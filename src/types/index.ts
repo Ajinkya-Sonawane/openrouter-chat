@@ -13,6 +13,19 @@ export interface Model {
   maxTokens?: number;
   provider?: string;
   image?: string;
+  context_length?: number;
+  created?: number;
+  pricing?: {
+    prompt?: string;
+    completion?: string;
+  };
+  architecture?: {
+    modality?: string;
+  };
+  top_provider?: {
+    is_moderated?: boolean;
+    name?: string;
+  };
 }
 
 export interface Chat {

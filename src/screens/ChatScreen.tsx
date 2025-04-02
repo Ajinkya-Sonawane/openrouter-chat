@@ -112,8 +112,36 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     // Update the navigation title with the model name
     if (chat) {
       console.log('Setting navigation title to:', chat.modelName);
+      
+      // Function to truncate model name if too long
+      const truncateModelName = (name: string, maxLength: number = 25) => {
+        if (name.length <= maxLength) return name;
+        return name.substring(0, maxLength - 3) + '...';
+      };
+      
       navigation.setOptions({
-        title: chat.modelName
+        title: chat.modelName,
+        // Add a custom header title component that's touchable
+        headerTitle: () => (
+          <TouchableOpacity
+            onPress={() => {
+              if (chat) {
+                navigation.navigate('ModelProfile', {
+                  modelId: chat.modelId,
+                  modelName: chat.modelName
+                });
+              }
+            }}
+            accessibilityLabel="View model details"
+          >
+            <View style={styles.headerTitleContainer}>
+              <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+                {truncateModelName(chat.modelName)}
+              </Text>
+              <Text style={styles.headerSubtitle}>Tap for model info</Text>
+            </View>
+          </TouchableOpacity>
+        )
       });
     }
   }, [chat, navigation]);
@@ -652,6 +680,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
     color: '#856404',
+  },
+  headerTitleContainer: {
+    alignItems: 'center',
+    maxWidth: 200,
+  },
+  headerTitle: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 12,
   },
 });
 

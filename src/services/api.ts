@@ -91,6 +91,23 @@ export const fetchModels = async () => {
   }
 };
 
+export const fetchModelDetails = async (modelId: string) => {
+  try {
+    const models = await fetchModels();
+    const modelDetails = models.find((model: any) => model.id === modelId);
+    
+    if (!modelDetails) {
+      console.error('Model not found:', modelId);
+      throw new Error('Model not found');
+    }
+    
+    return modelDetails;
+  } catch (error) {
+    console.error('Error fetching model details:', error);
+    throw error;
+  }
+};
+
 // Parse provider error messages from OpenRouter API
 const getProviderErrorMessage = (error: any): string => {
   try {

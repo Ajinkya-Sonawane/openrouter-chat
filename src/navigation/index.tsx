@@ -11,12 +11,14 @@ const ChatListScreen = require('../screens/ChatListScreen').default;
 const ChatScreen = require('../screens/ChatScreen').default;
 const ModelSelectionScreen = require('../screens/ModelSelectionScreen').default;
 const SettingsScreen = require('../screens/SettingsScreen').default;
+const ModelProfileScreen = require('../screens/ModelProfileScreen').default;
 
 export type RootStackParamList = {
   ChatList: undefined;
   Chat: { chatId: string } | { modelId: string; modelName: string };
   ModelSelection: undefined;
   Settings: undefined;
+  ModelProfile: { modelId: string; modelName: string };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -76,6 +78,13 @@ const AppNavigator = () => {
           component={SettingsScreen} 
           options={{ 
             title: 'Settings',
+          }} 
+        />
+        <Stack.Screen 
+          name="ModelProfile" 
+          component={ModelProfileScreen} 
+          options={{ 
+            title: 'Model Info',
           }} 
         />
       </Stack.Navigator>
