@@ -214,19 +214,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
             <Text style={styles.dangerButtonText}>Clear All Chats</Text>
           </TouchableOpacity>
         </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              OpenRouter Chat is a WhatsApp-style chat application for conversing with LLM models via the OpenRouter API.
-            </Text>
-            <Text style={[styles.infoText, styles.version]}>
-              Version 1.0.0
-            </Text>
-          </View>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );

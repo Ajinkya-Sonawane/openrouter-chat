@@ -5,7 +5,8 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { FAB } from 'react-native-paper';
@@ -200,15 +201,16 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
       ) : (
         <FlatList
           data={chats}
-          keyExtractor={(item) => item.id}
           renderItem={renderChatItem}
-          contentContainerStyle={styles.listContent}
+          keyExtractor={(item) => item.id}
+          style={styles.chatList}
+          contentContainerStyle={styles.chatListContent}
         />
       )}
+      
       <FAB
         style={styles.fab}
         icon="plus"
-        color={COLORS.white}
         onPress={() => navigation.navigate('ModelSelection')}
       />
     </View>
@@ -293,6 +295,12 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  chatList: {
+    flex: 1,
+  },
+  chatListContent: {
+    flexGrow: 1,
   },
 });
 
