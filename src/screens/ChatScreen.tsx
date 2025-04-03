@@ -26,10 +26,43 @@ import MessageInput from '../components/MessageInput';
 import TypingIndicator from '../components/TypingIndicator';
 import { eventEmitter, EVENT_TYPES } from '../utils/events';
 import ModelSwitch from '../components/ModelSwitch';
+import { Menu, Provider } from 'react-native-paper';
+import { MaterialIcons } from '@expo/vector-icons';
 
 type ChatScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
   route: RouteProp<RootStackParamList, 'Chat'>;
+};
+
+// Header right menu for the chat screen
+const HeaderRightChatMenu = ({ clearChatHistory }: { clearChatHistory: () => void }) => {
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  return (
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+      <Menu
+        visible={menuVisible}
+        onDismiss={() => setMenuVisible(false)}
+        anchor={
+          <TouchableOpacity
+            onPress={() => setMenuVisible(true)}
+            style={{ marginRight: 15 }}
+          >
+            <MaterialIcons name="more-vert" size={24} color={COLORS.white} />
+          </TouchableOpacity>
+        }
+      >
+        <Menu.Item
+          onPress={() => {
+            setMenuVisible(false);
+            clearChatHistory();
+          }}
+          title="Clear Chat"
+          leadingIcon="delete-sweep"
+        />
+      </Menu>
+    </View>
+  );
 };
 
 const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
@@ -141,7 +174,9 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
               <Text style={styles.headerSubtitle}>Tap for model info</Text>
             </View>
           </TouchableOpacity>
-        )
+        ),
+        // Add the header right menu with clear chat option
+        headerRight: () => <HeaderRightChatMenu clearChatHistory={clearChatHistory} />
       });
     }
   }, [chat, navigation]);
@@ -439,138 +474,176 @@ const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
     }
   };
 
+  // Function to clear the current chat history
+  const clearChatHistory = () => {
+    Alert.alert(
+      "Clear Chat",
+      "Are you sure you want to clear all messages in this chat?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              if (chat) {
+                // Create a new chat with the same model but no messages
+                const clearedChat: Chat = {
+                  ...chat,
+                  messages: [],
+                  lastMessage: undefined,
+                  lastMessageTime: undefined
+                };
+                
+                // Update state and save to storage
+                setChat(clearedChat);
+                await saveChat(clearedChat);
+                
+                console.log('Chat history cleared successfully');
+              }
+            } catch (error) {
+              console.error('Error clearing chat history:', error);
+              Alert.alert('Error', 'Failed to clear chat history');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (!chat) {
     return (
-      <SafeAreaView style={styles.centered} edges={['bottom']}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Initializing chat...</Text>
-      </SafeAreaView>
+      <Provider>
+        <SafeAreaView style={styles.centered} edges={['bottom']}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Initializing chat...</Text>
+        </SafeAreaView>
+      </Provider>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        enabled
-      >
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            {error.includes('Rate limit') && (
-              <View style={styles.modelSwitchContainer}>
-                <Text style={styles.modelSwitchText}>
-                  You've reached the rate limit for this model. Start a new chat with a different model:
-                </Text>
-                <ModelSwitch
-                  currentModelId={chat!.modelId}
-                  onModelSelect={handleModelSwitch}
-                  isRateLimitError={true}
-                />
-              </View>
-            )}
-          </View>
-        )}
-        
-        {apiKeyMissing && (
-          <View style={styles.apiKeyWarning}>
-            <Text style={styles.apiKeyWarningText}>
-              OpenRouter API key is missing. You need to add your API key to send messages.
-            </Text>
-            <View style={styles.apiKeyButtonRow}>
-              <TouchableOpacity 
-                style={styles.apiKeyButton} 
-                onPress={() => Linking.openURL(URLS.OPENROUTER_KEYS_PAGE)}
-              >
-                <Text style={styles.apiKeyButtonText}>Get API Key</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.apiKeyButton, styles.settingsButton]} 
-                onPress={handleGetApiKey}
-              >
-                <Text style={styles.apiKeyButtonText}>Open Settings</Text>
-              </TouchableOpacity>
+    <Provider>
+      <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+          enabled
+        >
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              {error.includes('Rate limit') && (
+                <View style={styles.modelSwitchContainer}>
+                  <Text style={styles.modelSwitchText}>
+                    You've reached the rate limit for this model. Start a new chat with a different model:
+                  </Text>
+                  <ModelSwitch
+                    currentModelId={chat!.modelId}
+                    onModelSelect={handleModelSwitch}
+                    isRateLimitError={true}
+                  />
+                </View>
+              )}
             </View>
-          </View>
-        )}
-        
-        <View style={{ flex: 1 }}>
-          <FlatList
-            ref={flatListRef}
-            data={chat.messages}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderMessageItem}
-            style={styles.messageList}
-            contentContainerStyle={{ paddingTop: 20, paddingBottom: 50 }}
-            inverted={false}
-            onContentSizeChange={() => {
-              // Only auto-scroll to end when no message is expanded
-              if (!expandedMessageId && chat.messages.length > 0) {
-                console.log('Content size changed - scrolling to end');
-                flatListRef.current?.scrollToEnd({ animated: false });
-              } else {
-                console.log('Content size changed - not scrolling (expanded message present)');
-              }
-            }}
-            onLayout={() => {
-              console.log('FlatList layout complete');
-              // Initial scroll to end when layout is ready
-              if (!expandedMessageId && chat.messages.length > 0) {
-                flatListRef.current?.scrollToEnd({ animated: false });
-              }
-            }}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Send a message to start chatting</Text>
-              </View>
-            }
-            ListFooterComponent={
-              waitingForResponse ? (
-                <Animated.View 
-                  style={[
-                    styles.typingContainer, 
-                    { opacity: typingOpacity }
-                  ]}
+          )}
+          
+          {apiKeyMissing && (
+            <View style={styles.apiKeyWarning}>
+              <Text style={styles.apiKeyWarningText}>
+                OpenRouter API key is missing. You need to add your API key to send messages.
+              </Text>
+              <View style={styles.apiKeyButtonRow}>
+                <TouchableOpacity 
+                  style={styles.apiKeyButton} 
+                  onPress={() => Linking.openURL(URLS.OPENROUTER_KEYS_PAGE)}
                 >
-                  <View style={styles.typingBubble}>
-                    <TypingIndicator />
-                  </View>
-                </Animated.View>
-              ) : <View style={styles.messageListFooter} />
-            }
-            showsVerticalScrollIndicator={true}
-            removeClippedSubviews={false}
-            maintainVisibleContentPosition={{
-              minIndexForVisible: 0,
-              autoscrollToTopThreshold: expandedMessageId ? 0 : 10
-            }}
-            maxToRenderPerBatch={5}
-            windowSize={5}
-            scrollIndicatorInsets={{ right: 1 }}
-            onScrollToIndexFailed={(info) => {
-              console.log('Failed to scroll to index:', info);
-              // Try again with some delay and different parameters
-              setTimeout(() => {
-                if (flatListRef.current) {
-                  flatListRef.current.scrollToIndex({
-                    index: info.index,
-                    animated: true,
-                    viewPosition: 0
-                  });
+                  <Text style={styles.apiKeyButtonText}>Get API Key</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.apiKeyButton, styles.settingsButton]} 
+                  onPress={handleGetApiKey}
+                >
+                  <Text style={styles.apiKeyButtonText}>Open Settings</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          
+          <View style={styles.chatContainer}>
+            <FlatList
+              ref={flatListRef}
+              data={chat.messages}
+              renderItem={renderMessageItem}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.messagesContainer}
+              onLayout={() => {
+                console.log('FlatList layout complete');
+                if (chat.messages.length > 0 && !expandedMessageId) {
+                  scrollToEndWithDelay(true);
                 }
-              }, 300);
-            }}
+              }}
+              onContentSizeChange={(width, height) => {
+                if (expandedMessageId) {
+                  console.log('Content size changed - not scrolling (expanded message present)');
+                } else {
+                  console.log('Content size changed - scrolling to end');
+                  scrollToEndWithDelay();
+                }
+              }}
+              maintainVisibleContentPosition={{
+                minIndexForVisible: 0,
+                autoscrollToTopThreshold: expandedMessageId ? 0 : 10
+              }}
+              maxToRenderPerBatch={5}
+              windowSize={5}
+              scrollIndicatorInsets={{ right: 1 }}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>Send a message to start chatting</Text>
+                </View>
+              }
+              ListFooterComponent={
+                waitingForResponse ? (
+                  <Animated.View 
+                    style={[
+                      styles.typingContainer, 
+                      { opacity: typingOpacity }
+                    ]}
+                  >
+                    <View style={styles.typingBubble}>
+                      <TypingIndicator />
+                    </View>
+                  </Animated.View>
+                ) : <View style={styles.messageListFooter} />
+              }
+              onScrollToIndexFailed={(info) => {
+                console.log('Failed to scroll to index:', info);
+                // Try again with some delay and different parameters
+                setTimeout(() => {
+                  if (flatListRef.current) {
+                    flatListRef.current.scrollToIndex({
+                      index: info.index,
+                      animated: true,
+                      viewPosition: 0
+                    });
+                  }
+                }, 300);
+              }}
+            />
+          </View>
+          
+          <MessageInput 
+            onSendMessage={handleSendMessage}
+            loading={loading}
           />
-        </View>
-        
-        <MessageInput 
-          onSendMessage={handleSendMessage}
-          loading={loading}
-        />
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </Provider>
   );
 };
 
@@ -636,41 +709,12 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: 'bold',
   },
-  messageList: {
-    padding: 10,
-    paddingBottom: 20,
-  },
-  messageListFooter: {
-    height: 10,
-  },
-  emptyContainer: {
+  chatContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 50,
   },
-  emptyText: {
-    color: COLORS.gray,
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  typingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    alignSelf: 'flex-start',
-  },
-  typingBubble: {
-    backgroundColor: COLORS.bubble.assistant,
-    borderRadius: 16,
-    borderTopLeftRadius: 0,
-    padding: 5,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  messagesContainer: {
+    paddingTop: 20,
+    paddingBottom: 50,
   },
   modelSwitchContainer: {
     marginTop: 10,
@@ -694,6 +738,37 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 12,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: COLORS.gray,
+    fontSize: 16,
+  },
+  typingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    alignSelf: 'flex-start',
+  },
+  typingBubble: {
+    backgroundColor: COLORS.bubble.assistant,
+    borderRadius: 16,
+    borderTopLeftRadius: 0,
+    padding: 12,
+    marginBottom: 10,
+    marginLeft: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  messageListFooter: {
+    height: 20,
   },
 });
 
