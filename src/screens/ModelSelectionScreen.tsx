@@ -67,31 +67,19 @@ const ModelSelectionScreen: React.FC<ModelSelectionScreenProps> = ({
         return;
       }
 
-      // Emit the model selected event for backward compatibility
-      eventEmitter.emit(EVENT_TYPES.MODEL_SELECTED, model.id, model.name);
+      // Check if a chat with this model already exists
+      const existingChats = await getChats();
+      const existingChat = existingChats.find(chat => chat.modelId === model.id);
       
-      // Direct navigation approach with existing chat check
-      try {
-        // Check if a chat with this model already exists
-        const existingChats = await getChats();
-        const existingChat = existingChats.find(chat => chat.modelId === model.id);
-        
-        if (existingChat) {
-          console.log('Found existing chat for model:', model.id, 'Chat ID:', existingChat.id);
-          // Navigate to the existing chat
-          navigation.navigate('Chat', { chatId: existingChat.id });
-        } else {
-          console.log('No existing chat found for model:', model.id, 'Creating new chat');
-          // Create a new chat
-          navigation.navigate('Chat', {
-            modelId: model.id,
-            modelName: model.name
-          });
-        }
-      } catch (navError) {
-        console.error('Navigation error:', navError);
-        Alert.alert('Navigation Error', 'Failed to navigate to chat screen');
-      }
+      // Prepare navigation parameters based on whether the chat exists or not
+      const chatParams = existingChat 
+        ? { chatId: existingChat.id }
+        : { modelId: model.id, modelName: model.name };
+      
+      // Small delay before navigating to Chat to ensure smoother transitions
+      setTimeout(() => {
+        navigation.replace('Chat', chatParams);
+      }, 50);
     } catch (error) {
       console.error('Error in handleSelectModel:', error);
       Alert.alert('Error', 'Failed to select model');
