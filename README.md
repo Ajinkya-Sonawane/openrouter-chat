@@ -21,12 +21,16 @@
 
 <div align="center">
   <table>
-    <tr>
-	<td><img src="assets/screenshots/chat-list.png" alt="Chat List" width="250"/></td>  
-	<td><img src="assets/screenshots/model-selection.png" alt="Model Selection" width="250"/></td>
-	<td><img src="assets/screenshots/chat-screen.png" alt="Chat Screen" width="250"/></td>
-	<td><img src="assets/screenshots/settings.png" alt="Settings" width="250"/></td>
-    </tr>
+	<tr>
+		<td><img src="assets/screenshots/chat-list.png" alt="Chat List" width="250"/></td>  
+		<td><img src="assets/screenshots/model-selection.png" alt="Model Selection" width="250"/></td>
+		<td><img src="assets/screenshots/chat-screen.png" alt="Chat Screen" width="250"/></td>
+    	</tr>
+	<tr>
+		<td><img src="assets/screenshots/search-chat.png" alt="Chat Search" width="250"/></td>
+		<td><img src="assets/screenshots/settings.png" alt="Settings" width="250"/></td>
+		<td><img src="assets/screenshots/about.png" alt="About" width="250"/></td>
+	</tr>
   </table>
 </div>
 
