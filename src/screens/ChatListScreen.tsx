@@ -7,7 +7,8 @@ import {
   StyleSheet,
   Alert,
   Platform,
-  TextInput
+  TextInput,
+  Animated
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { FAB } from 'react-native-paper';
@@ -19,6 +20,11 @@ import { RootStackParamList } from '../navigation';
 import { Swipeable } from 'react-native-gesture-handler';
 import { eventEmitter, EVENT_TYPES } from '../utils/events';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Key for storing the tooltip display state
+const TOOLTIP_SHOWN_KEY = 'longpress_tooltip_shown';
 
 type ChatListScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'ChatList'>;
@@ -30,6 +36,8 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [hasApiKey, setHasApiKey] = useState(false);
+  const [showLongPressTooltip, setShowLongPressTooltip] = useState(false);
+  const tooltipOpacity = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     console.log('ChatListScreen mounted');
@@ -73,6 +81,9 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
       }
     );
 
+    // Check if we should show the long press tooltip
+    checkTooltipStatus();
+
     return () => {
       console.log('ChatListScreen unmounting');
       unsubscribe();
@@ -81,6 +92,49 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
       apiKeyChangedUnsubscribe();
     };
   }, [navigation]);
+
+  // Effect to show tooltip animation when visible
+  useEffect(() => {
+    if (showLongPressTooltip) {
+      Animated.sequence([
+        Animated.timing(tooltipOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.delay(500)
+      ]).start();
+    } else {
+      Animated.timing(tooltipOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showLongPressTooltip, tooltipOpacity]);
+
+  // Check if we've already shown the tooltip to the user
+  const checkTooltipStatus = async () => {
+    try {
+      const tooltipShown = await AsyncStorage.getItem(TOOLTIP_SHOWN_KEY);
+      if (tooltipShown !== 'true' && chats.length > 0) {
+        setShowLongPressTooltip(true);
+      }
+    } catch (error) {
+      console.error('Error checking tooltip status:', error);
+    }
+  };
+
+  // Mark the tooltip as shown
+  const dismissTooltip = async () => {
+    try {
+      await AsyncStorage.setItem(TOOLTIP_SHOWN_KEY, 'true');
+      setShowLongPressTooltip(false);
+    } catch (error) {
+      console.error('Error saving tooltip status:', error);
+      setShowLongPressTooltip(false);
+    }
+  };
 
   // Effect to filter chats when search query changes
   useEffect(() => {
@@ -123,6 +177,11 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
       console.log(`Loaded ${loadedChats.length} chats`);
       setChats(loadedChats);
       setFilteredChats(loadedChats); // Set filtered chats to all chats initially
+      
+      // Check if we should show tooltip when chats are loaded
+      if (loadedChats.length > 0) {
+        checkTooltipStatus();
+      }
     } catch (error) {
       console.error('Error loading chats:', error);
       Alert.alert('Error', 'Failed to load chats');
@@ -195,6 +254,13 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
           console.log('Opening chat:', item.id);
           navigation.navigate('Chat', { chatId: item.id });
         }}
+        onLongPress={() => {
+          console.log('Long press detected on chat:', item.id);
+          // Trigger haptic feedback
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          handleDeleteChat(item.id);
+        }}
+        delayLongPress={500}
       >
         <View style={styles.chatInfo}>
           <Text style={styles.modelName}>{item.modelName}</Text>
@@ -246,6 +312,22 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
           )}
         </View>
       </View>
+      
+      {/* Long press tooltip - only shown if showLongPressTooltip is true */}
+      {filteredChats.length > 0 && showLongPressTooltip && (
+        <Animated.View style={[styles.tooltipContainer, { opacity: tooltipOpacity }]}>
+          <View style={styles.tooltipContent}>
+            <MaterialIcons name="touch-app" size={20} color={COLORS.white} style={styles.tooltipIcon} />
+            <Text style={styles.tooltipText}>
+              Pro tip: Long press on a chat to quickly delete it
+            </Text>
+            <TouchableOpacity onPress={dismissTooltip} style={styles.tooltipCloseButton}>
+              <MaterialIcons name="close" size={18} color={COLORS.white} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.tooltipArrow} />
+        </Animated.View>
+      )}
       
       {filteredChats.length === 0 && !loading ? (
         <View style={styles.emptyContainer}>
@@ -327,6 +409,52 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 5,
+  },
+  tooltipContainer: {
+    position: 'absolute',
+    top: 70, // Position it below the search bar
+    alignSelf: 'center',
+    zIndex: 10,
+    paddingHorizontal: 15,
+  },
+  tooltipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  tooltipArrow: {
+    alignSelf: 'center',
+    width: 0,
+    height: 0,
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderTopWidth: 8,
+    borderStyle: 'solid',
+    backgroundColor: 'transparent',
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: COLORS.secondary,
+    transform: [{ rotate: '180deg' }],
+  },
+  tooltipIcon: {
+    marginRight: 8,
+  },
+  tooltipText: {
+    flex: 1,
+    color: COLORS.white,
+    fontSize: 14,
+  },
+  tooltipCloseButton: {
+    padding: 3,
+    marginLeft: 5,
   },
   listContent: {
     flexGrow: 1,
