@@ -190,12 +190,24 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleCreateChat = (modelId: string, modelName: string) => {
+  const handleCreateChat = async (modelId: string, modelName: string) => {
     try {
-      navigation.navigate('Chat', {
-        modelId,
-        modelName
-      });
+      // First, check if a chat with this model already exists
+      const existingChats = await getChats();
+      const existingChat = existingChats.find(chat => chat.modelId === modelId);
+      
+      if (existingChat) {
+        console.log('Found existing chat for model:', modelId, 'Chat ID:', existingChat.id);
+        // Navigate to the existing chat instead of creating a new one
+        navigation.navigate('Chat', { chatId: existingChat.id });
+      } else {
+        console.log('No existing chat found for model:', modelId, 'Creating new chat');
+        // Create a new chat by navigating to Chat screen with modelId and modelName
+        navigation.navigate('Chat', {
+          modelId,
+          modelName
+        });
+      }
     } catch (error) {
       console.error('Navigation error:', error);
       Alert.alert('Error', 'Failed to navigate to chat screen');

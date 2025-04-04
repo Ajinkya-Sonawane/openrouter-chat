@@ -12,7 +12,7 @@ import {
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { COLORS } from '../constants';
-import { getModels, saveModels } from '../services/storage';
+import { getModels, saveModels, getChats } from '../services/storage';
 import { fetchModels } from '../services/api';
 import { Model } from '../types';
 import { RootStackParamList } from '../navigation';
@@ -58,7 +58,7 @@ const ModelSelectionScreen: React.FC<ModelSelectionScreenProps> = ({
     }
   };
 
-  const handleSelectModel = (model: Model) => {
+  const handleSelectModel = async (model: Model) => {
     try {
       console.log('Model selected:', model);
       
@@ -67,15 +67,27 @@ const ModelSelectionScreen: React.FC<ModelSelectionScreenProps> = ({
         return;
       }
 
-      // Emit the model selected event
+      // Emit the model selected event for backward compatibility
       eventEmitter.emit(EVENT_TYPES.MODEL_SELECTED, model.id, model.name);
       
-      // Also try a direct navigation approach
+      // Direct navigation approach with existing chat check
       try {
-        navigation.navigate('Chat', {
-          modelId: model.id,
-          modelName: model.name
-        });
+        // Check if a chat with this model already exists
+        const existingChats = await getChats();
+        const existingChat = existingChats.find(chat => chat.modelId === model.id);
+        
+        if (existingChat) {
+          console.log('Found existing chat for model:', model.id, 'Chat ID:', existingChat.id);
+          // Navigate to the existing chat
+          navigation.navigate('Chat', { chatId: existingChat.id });
+        } else {
+          console.log('No existing chat found for model:', model.id, 'Creating new chat');
+          // Create a new chat
+          navigation.navigate('Chat', {
+            modelId: model.id,
+            modelName: model.name
+          });
+        }
       } catch (navError) {
         console.error('Navigation error:', navError);
         Alert.alert('Navigation Error', 'Failed to navigate to chat screen');
