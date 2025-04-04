@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Platform
+  Platform,
+  TextInput
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { FAB } from 'react-native-paper';
@@ -17,6 +18,7 @@ import { Chat } from '../types';
 import { RootStackParamList } from '../navigation';
 import { Swipeable } from 'react-native-gesture-handler';
 import { eventEmitter, EVENT_TYPES } from '../utils/events';
+import { MaterialIcons } from '@expo/vector-icons';
 
 type ChatListScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'ChatList'>;
@@ -24,6 +26,8 @@ type ChatListScreenProps = {
 
 const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
   const [chats, setChats] = useState<Chat[]>([]);
+  const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [hasApiKey, setHasApiKey] = useState(false);
 
@@ -78,6 +82,33 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
     };
   }, [navigation]);
 
+  // Effect to filter chats when search query changes
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredChats(chats);
+    } else {
+      const lowercaseQuery = searchQuery.toLowerCase();
+      const filtered = chats.filter(chat => {
+        // Search by model name
+        const modelNameMatch = chat.modelName.toLowerCase().includes(lowercaseQuery);
+        
+        // Search by message content
+        const messageMatch = chat.messages.some(message => 
+          message.content.toLowerCase().includes(lowercaseQuery)
+        );
+        
+        // Search by last message if it exists
+        const lastMessageMatch = chat.lastMessage ? 
+          chat.lastMessage.toLowerCase().includes(lowercaseQuery) : 
+          false;
+        
+        return modelNameMatch || messageMatch || lastMessageMatch;
+      });
+      
+      setFilteredChats(filtered);
+    }
+  }, [searchQuery, chats]);
+
   const checkApiKey = () => {
     const hasKey = checkApiKeyStatus();
     console.log('API key status:', hasKey ? 'Set' : 'Not set');
@@ -91,6 +122,7 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
       const loadedChats = await getChats();
       console.log(`Loaded ${loadedChats.length} chats`);
       setChats(loadedChats);
+      setFilteredChats(loadedChats); // Set filtered chats to all chats initially
     } catch (error) {
       console.error('Error loading chats:', error);
       Alert.alert('Error', 'Failed to load chats');
@@ -136,6 +168,10 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
         },
       ]
     );
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
   };
 
   const renderRightActions = (chatId: string) => {
@@ -191,16 +227,47 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
       )}
       
-      {chats.length === 0 && !loading ? (
+      {/* Search bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <MaterialIcons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
+              <MaterialIcons name="clear" size={20} color={COLORS.gray} />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      
+      {filteredChats.length === 0 && !loading ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No chats yet</Text>
-          <Text style={styles.emptySubText}>
-            Tap the + button to start a new chat
-          </Text>
+          {searchQuery.length > 0 ? (
+            <>
+              <Text style={styles.emptyText}>No chats match your search</Text>
+              <Text style={styles.emptySubText}>
+                Try a different search term
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.emptyText}>No chats yet</Text>
+              <Text style={styles.emptySubText}>
+                Tap the + button to start a new chat
+              </Text>
+            </>
+          )}
         </View>
       ) : (
         <FlatList
-          data={chats}
+          data={filteredChats}
           renderItem={renderChatItem}
           keyExtractor={(item) => item.id}
           style={styles.chatList}
@@ -232,6 +299,34 @@ const styles = StyleSheet.create({
   warningText: {
     color: '#856404',
     textAlign: 'center',
+  },
+  searchContainer: {
+    padding: 10,
+    backgroundColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    zIndex: 1,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  clearButton: {
+    padding: 5,
   },
   listContent: {
     flexGrow: 1,
