@@ -1,6 +1,15 @@
 // API Constants
 export const OPENROUTER_API_KEY = ''; // Replace with your OpenRouter API key
 
+// Model Selection Filter constants
+export const FILTER_VALUES = {
+  ALL: 'all',
+  FREE: 'free',
+  PAID: 'paid',
+  TEXT: 'text',
+  MULTIMODAL: 'multimodal'
+};
+
 // URL Constants
 export const URLS = {
   // API URLs
