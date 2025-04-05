@@ -9,12 +9,18 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.openrouterchat.app",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#128C7E"
-      }
+      },
+      "package": "com.openrouterchat.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

@@ -136,3 +136,7 @@ Desktop.ini
 # Configurations with sensitive information
 **/GoogleService-Info.plist
 **/google-services.json
+
+# Build files
+android/
+ios/
