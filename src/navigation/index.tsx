@@ -14,11 +14,17 @@ const ChatScreen = require('../screens/ChatScreen').default;
 const ModelSelectionScreen = require('../screens/ModelSelectionScreen').default;
 const SettingsScreen = require('../screens/SettingsScreen').default;
 const ModelProfileScreen = require('../screens/ModelProfileScreen').default;
+const RoomProfileScreen = require('../screens/RoomProfileScreen').default;
 const AboutScreen = require('../screens/AboutScreen').default;
+const RoomCreationScreen = require('../screens/RoomCreationScreen').default;
+const RoomChatScreen = require('../screens/RoomChatScreen').default;
 
 export type RootStackParamList = {
   ChatList: undefined;
   Chat: { chatId: string } | { modelId: string; modelName: string };
+  RoomCreation: undefined;
+  RoomChat: { roomId: string };
+  RoomProfile: { roomId: string; roomName: string };
   ModelSelection: undefined;
   Settings: undefined;
   ModelProfile: { modelId: string; modelName: string };
@@ -126,9 +132,26 @@ const AppNavigator = () => {
             options={{ title: 'Model Info' }} 
           />
           <Stack.Screen 
+            name="RoomProfile" 
+            component={RoomProfileScreen} 
+            options={{ title: 'Room Info' }} 
+          />
+          <Stack.Screen 
             name="About" 
             component={AboutScreen} 
             options={{ title: 'About' }} 
+          />
+          <Stack.Screen 
+            name="RoomCreation" 
+            component={RoomCreationScreen} 
+            options={{ title: 'Create Room' }} 
+          />
+          <Stack.Screen 
+            name="RoomChat" 
+            component={RoomChatScreen} 
+            options={() => ({ 
+              headerShown: true
+            })} 
           />
         </Stack.Navigator>
       </NavigationContainer>

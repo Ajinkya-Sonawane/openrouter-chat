@@ -21,6 +21,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   onExpansionChange 
 }) => {
   const isUser = message.role === 'user';
+  const modelName = message.modelName; // Get model name if available
   const [contentHeight, setContentHeight] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -117,6 +118,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         </TouchableOpacity>
       </View>
       
+      {!isUser && modelName && (
+        <View style={styles.modelBubbleContainer}>
+          <View style={styles.modelBubble}>
+            <MaterialIcons name="smart-toy" size={12} color={COLORS.white} style={styles.modelIcon} />
+            <Text style={styles.modelNameText}>{modelName}</Text>
+          </View>
+        </View>
+      )}
+
       <View 
         ref={contentRef}
         style={[
@@ -177,6 +187,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
     marginBottom: 5,
+  },
+  modelBubbleContainer: {
+    marginBottom: 8,
+  },
+  modelBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  modelIcon: {
+    marginRight: 4,
+  },
+  modelNameText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    letterSpacing: 0.2,
   },
   copyButton: {
     padding: 4,

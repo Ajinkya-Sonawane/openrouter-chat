@@ -4,6 +4,7 @@ export interface Message {
   role: 'user' | 'assistant';
   timestamp: number;
   modelId?: string;
+  modelName?: string;
 }
 
 export interface Model {
@@ -32,7 +33,21 @@ export interface Chat {
   id: string;
   modelId: string;
   modelName: string;
+  messages: Message[];
   lastMessage?: string;
   lastMessageTime?: number;
+}
+
+export interface RoomModel {
+  id: string;
+  name: string;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  models: RoomModel[];
   messages: Message[];
+  lastMessage?: string;
+  lastMessageTime?: number;
 } 

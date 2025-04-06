@@ -16,7 +16,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { COLORS, URLS } from '../constants';
 import { getApiKey, saveApiKey, clearApiKey } from '../services/settings';
 import { refreshApiKey } from '../services/api';
-import { clearAllChats } from '../services/storage';
+import { clearAll } from '../services/storage';
 import { RootStackParamList } from '../navigation';
 
 type SettingsScreenProps = {
@@ -101,8 +101,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
 
   const handleClearAllChats = () => {
     Alert.alert(
-      'Clear All Chats',
-      'Are you sure you want to delete all your chats? This action cannot be undone.',
+      'Clear All Data',
+      'Are you sure you want to delete all your chats and rooms? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         { 
@@ -111,11 +111,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
           onPress: async () => {
             try {
               setLoading(true);
-              await clearAllChats();
-              Alert.alert('Success', 'All chats have been cleared');
+              await clearAll();
+              Alert.alert('Success', 'All chats and rooms have been cleared');
             } catch (err) {
-              console.error('Error clearing chats:', err);
-              setError('Failed to clear chats');
+              console.error('Error clearing data:', err);
+              setError('Failed to clear data');
             } finally {
               setLoading(false);
             }

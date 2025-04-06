@@ -11,11 +11,11 @@ import {
   Animated
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { FAB } from 'react-native-paper';
+import { FAB, Portal, Provider as PaperProvider } from 'react-native-paper';
 import { COLORS } from '../constants';
-import { getChats, deleteChat } from '../services/storage';
+import { getChats, deleteChat, getRooms, deleteRoom } from '../services/storage';
 import { checkApiKeyStatus } from '../services/api';
-import { Chat } from '../types';
+import { Chat, Room } from '../types';
 import { RootStackParamList } from '../navigation';
 import { Swipeable } from 'react-native-gesture-handler';
 import { eventEmitter, EVENT_TYPES } from '../utils/events';
@@ -32,12 +32,14 @@ type ChatListScreenProps = {
 
 const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
   const [chats, setChats] = useState<Chat[]>([]);
-  const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [filteredItems, setFilteredItems] = useState<(Chat | Room)[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [hasApiKey, setHasApiKey] = useState(false);
   const [showLongPressTooltip, setShowLongPressTooltip] = useState(false);
   const tooltipOpacity = React.useRef(new Animated.Value(0)).current;
+  const [fabOpen, setFabOpen] = useState(false);
 
   useEffect(() => {
     console.log('ChatListScreen mounted');
@@ -45,13 +47,13 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
     // Check if API key is set
     checkApiKey();
     
-    const unsubscribe = navigation.addListener('focus', () => {
-      console.log('ChatListScreen focused, loading chats');
-      loadChats();
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      console.log('ChatListScreen focused, loading data');
+      loadData();
       checkApiKey();
     });
 
-    loadChats();
+    loadData();
     
     // Listen for model selection events
     console.log('Setting up model selection listener');
@@ -63,12 +65,19 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
       }
     );
     
-    // Listen for chat updates (when chats are cleared)
+    // Listen for chat AND room updates
     const chatsUpdatedUnsubscribe = eventEmitter.on(
       EVENT_TYPES.CHATS_UPDATED,
       () => {
-        console.log('Chats updated event received, reloading chats');
-        loadChats();
+        console.log('Chats updated event received, reloading data');
+        loadData();
+      }
+    );
+    const roomsUpdatedUnsubscribe = eventEmitter.on(
+      EVENT_TYPES.ROOMS_UPDATED,
+      () => {
+        console.log('Rooms updated event received, reloading data');
+        loadData();
       }
     );
     
@@ -86,9 +95,10 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
 
     return () => {
       console.log('ChatListScreen unmounting');
-      unsubscribe();
+      unsubscribeFocus();
       modelSelectedUnsubscribe();
       chatsUpdatedUnsubscribe();
+      roomsUpdatedUnsubscribe();
       apiKeyChangedUnsubscribe();
     };
   }, [navigation]);
@@ -117,7 +127,7 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
   const checkTooltipStatus = async () => {
     try {
       const tooltipShown = await AsyncStorage.getItem(TOOLTIP_SHOWN_KEY);
-      if (tooltipShown !== 'true' && chats.length > 0) {
+      if (tooltipShown !== 'true' && (chats.length > 0 || rooms.length > 0)) {
         setShowLongPressTooltip(true);
       }
     } catch (error) {
@@ -136,32 +146,38 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
     }
   };
 
-  // Effect to filter chats when search query changes
+  // Effect to filter combined items
   useEffect(() => {
+    const combinedItems = [...chats, ...rooms];
     if (searchQuery.trim() === '') {
-      setFilteredChats(chats);
+      setFilteredItems(combinedItems);
     } else {
       const lowercaseQuery = searchQuery.toLowerCase();
-      const filtered = chats.filter(chat => {
-        // Search by model name
-        const modelNameMatch = chat.modelName.toLowerCase().includes(lowercaseQuery);
-        
-        // Search by message content
-        const messageMatch = chat.messages.some(message => 
-          message.content.toLowerCase().includes(lowercaseQuery)
-        );
-        
-        // Search by last message if it exists
-        const lastMessageMatch = chat.lastMessage ? 
-          chat.lastMessage.toLowerCase().includes(lowercaseQuery) : 
-          false;
-        
-        return modelNameMatch || messageMatch || lastMessageMatch;
+      const filtered = combinedItems.filter(item => {
+        if ('modelId' in item) { // It's a Chat
+          const modelNameMatch = item.modelName.toLowerCase().includes(lowercaseQuery);
+          const messageMatch = item.messages.some(message => 
+            message.content.toLowerCase().includes(lowercaseQuery)
+          );
+          const lastMessageMatch = item.lastMessage ? 
+            item.lastMessage.toLowerCase().includes(lowercaseQuery) : 
+            false;
+          return modelNameMatch || messageMatch || lastMessageMatch;
+        } else { // It's a Room
+          const roomNameMatch = item.name.toLowerCase().includes(lowercaseQuery);
+          const modelNameMatch = item.models.some(model => model.name.toLowerCase().includes(lowercaseQuery));
+          const messageMatch = item.messages.some(message => 
+            message.content.toLowerCase().includes(lowercaseQuery)
+          );
+           const lastMessageMatch = item.lastMessage ? 
+            item.lastMessage.toLowerCase().includes(lowercaseQuery) : 
+            false;
+          return roomNameMatch || modelNameMatch || messageMatch || lastMessageMatch;
+        }
       });
-      
-      setFilteredChats(filtered);
+      setFilteredItems(filtered);
     }
-  }, [searchQuery, chats]);
+  }, [searchQuery, chats, rooms]);
 
   const checkApiKey = () => {
     const hasKey = checkApiKeyStatus();
@@ -169,22 +185,28 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
     setHasApiKey(hasKey);
   };
 
-  const loadChats = async () => {
-    console.log('Loading chats');
+  const loadData = async () => {
+    console.log('Loading chats and rooms');
     setLoading(true);
     try {
       const loadedChats = await getChats();
-      console.log(`Loaded ${loadedChats.length} chats`);
-      setChats(loadedChats);
-      setFilteredChats(loadedChats); // Set filtered chats to all chats initially
+      const loadedRooms = await getRooms();
+      console.log(`Loaded ${loadedChats.length} chats and ${loadedRooms.length} rooms`);
       
-      // Check if we should show tooltip when chats are loaded
-      if (loadedChats.length > 0) {
+      // Combine and sort by last message time
+      const combined = [...loadedChats, ...loadedRooms];
+      combined.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
+
+      setChats(loadedChats);
+      setRooms(loadedRooms);
+      setFilteredItems(combined); // Set filtered items initially
+      
+      if (combined.length > 0) {
         checkTooltipStatus();
       }
     } catch (error) {
-      console.error('Error loading chats:', error);
-      Alert.alert('Error', 'Failed to load chats');
+      console.error('Error loading data:', error);
+      Alert.alert('Error', 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -214,26 +236,32 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleDeleteChat = async (chatId: string) => {
-    console.log('Attempting to delete chat:', chatId);
+  const handleDeleteItem = async (item: Chat | Room) => {
+    const isChat = 'modelId' in item;
+    const id = item.id;
+    const type = isChat ? 'Chat' : 'Room';
+    const name = isChat ? item.modelName : item.name;
+    
+    console.log(`Attempting to delete ${type}:`, id, name);
     Alert.alert(
-      'Delete Chat',
-      'Are you sure you want to delete this chat?',
+      `Delete ${type}`,
+      `Are you sure you want to delete this ${type.toLowerCase()} (${name})?`,
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteChat(chatId);
-              loadChats();
+              if (isChat) {
+                await deleteChat(id);
+              } else {
+                await deleteRoom(id);
+              }
+              // loadData() will be triggered by the event emitter
             } catch (error) {
-              console.error('Error deleting chat:', error);
-              Alert.alert('Error', 'Failed to delete chat');
+              console.error(`Error deleting ${type}:`, error);
+              Alert.alert('Error', `Failed to delete ${type.toLowerCase()}`);
             }
           },
         },
@@ -245,136 +273,169 @@ const ChatListScreen: React.FC<ChatListScreenProps> = ({ navigation }) => {
     setSearchQuery('');
   };
 
-  const renderRightActions = (chatId: string) => {
+  const renderRightActions = (item: Chat | Room) => {
     return (
       <TouchableOpacity
         style={styles.deleteButton}
-        onPress={() => handleDeleteChat(chatId)}
+        onPress={() => handleDeleteItem(item)}
       >
         <Text style={styles.deleteButtonText}>Delete</Text>
       </TouchableOpacity>
     );
   };
 
-  const renderChatItem = ({ item }: { item: Chat }) => (
-    <Swipeable
-      renderRightActions={() => renderRightActions(item.id)}
-    >
-      <TouchableOpacity
-        style={styles.chatItem}
-        onPress={() => {
-          console.log('Opening chat:', item.id);
-          navigation.navigate('Chat', { chatId: item.id });
-        }}
-        onLongPress={() => {
-          console.log('Long press detected on chat:', item.id);
-          // Trigger haptic feedback
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          handleDeleteChat(item.id);
-        }}
-        delayLongPress={500}
-      >
-        <View style={styles.chatInfo}>
-          <Text style={styles.modelName}>{item.modelName}</Text>
-          <Text style={styles.lastMessage} numberOfLines={1}>
-            {item.lastMessage || 'No messages yet'}
-          </Text>
-        </View>
-        {item.lastMessageTime && (
-          <Text style={styles.timestamp}>
-            {new Date(item.lastMessageTime).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-        )}
-      </TouchableOpacity>
-    </Swipeable>
-  );
+  const renderItem = ({ item }: { item: Chat | Room }) => {
+    const isChat = 'modelId' in item;
+    const title = isChat ? item.modelName : item.name;
+    const subtitle = item.lastMessage || (isChat ? 'No messages yet' : 'No messages in room');
+    const timestamp = item.lastMessageTime;
+
+    return (
+      <Swipeable renderRightActions={() => renderRightActions(item)}>
+        <TouchableOpacity
+          style={styles.listItem}
+          onPress={() => {
+            if (isChat) {
+              console.log('Opening chat:', item.id);
+              navigation.navigate('Chat', { chatId: item.id });
+            } else {
+              console.log('Opening room:', item.id);
+              navigation.navigate('RoomChat', { roomId: item.id });
+            }
+          }}
+          onLongPress={() => {
+            console.log(`Long press detected on ${isChat ? 'chat' : 'room'}:`, item.id);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            handleDeleteItem(item);
+          }}
+          delayLongPress={500}
+        >
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemTitle}>{title}</Text>
+            {!isChat && (
+              <Text style={styles.roomModels} numberOfLines={1}>
+                Models: {(item as Room).models.map(m => m.name).join(', ')}
+              </Text>
+            )}
+            <Text style={styles.itemSubtitle} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          </View>
+          {timestamp && (
+            <Text style={styles.timestamp}>
+              {new Date(timestamp).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </Swipeable>
+    );
+  };
 
   return (
-    <View style={styles.container}>
-      {!hasApiKey && (
-        <TouchableOpacity 
-          style={styles.warningBanner}
-          onPress={() => navigation.navigate('Settings')}
-        >
-          <Text style={styles.warningText}>
-            OpenRouter API key not set. Tap here to add your API key in Settings.
-          </Text>
-        </TouchableOpacity>
-      )}
-      
-      {/* Search bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search chats..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            clearButtonMode="while-editing"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
-              <MaterialIcons name="clear" size={20} color={COLORS.gray} />
+    <PaperProvider>
+      <Portal>
+        <View style={styles.container}>
+          {!hasApiKey && (
+            <TouchableOpacity 
+              style={styles.warningBanner}
+              onPress={() => navigation.navigate('Settings')}
+            >
+              <Text style={styles.warningText}>
+                OpenRouter API key not set. Tap here to add your API key in Settings.
+              </Text>
             </TouchableOpacity>
           )}
-        </View>
-      </View>
-      
-      {/* Long press tooltip - only shown if showLongPressTooltip is true */}
-      {filteredChats.length > 0 && showLongPressTooltip && (
-        <Animated.View style={[styles.tooltipContainer, { opacity: tooltipOpacity }]}>
-          <View style={styles.tooltipContent}>
-            <MaterialIcons name="touch-app" size={20} color={COLORS.white} style={styles.tooltipIcon} />
-            <Text style={styles.tooltipText}>
-              Pro tip: Long press on a chat to quickly delete it
-            </Text>
-            <TouchableOpacity onPress={dismissTooltip} style={styles.tooltipCloseButton}>
-              <MaterialIcons name="close" size={18} color={COLORS.white} />
-            </TouchableOpacity>
+          
+          {/* Search bar */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <MaterialIcons name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search chats..."
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+                clearButtonMode="while-editing"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={handleClearSearch} style={styles.clearButton}>
+                  <MaterialIcons name="clear" size={20} color={COLORS.gray} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-          <View style={styles.tooltipArrow} />
-        </Animated.View>
-      )}
-      
-      {filteredChats.length === 0 && !loading ? (
-        <View style={styles.emptyContainer}>
-          {searchQuery.length > 0 ? (
-            <>
-              <Text style={styles.emptyText}>No chats match your search</Text>
-              <Text style={styles.emptySubText}>
-                Try a different search term
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.emptyText}>No chats yet</Text>
-              <Text style={styles.emptySubText}>
-                Tap the + button to start a new chat
-              </Text>
-            </>
+          
+          {/* Long press tooltip - only shown if showLongPressTooltip is true */}
+          {filteredItems.length > 0 && showLongPressTooltip && (
+            <Animated.View style={[styles.tooltipContainer, { opacity: tooltipOpacity }]}>
+              <View style={styles.tooltipContent}>
+                <MaterialIcons name="touch-app" size={20} color={COLORS.white} style={styles.tooltipIcon} />
+                <Text style={styles.tooltipText}>
+                  Pro tip: Long press on a chat to quickly delete it
+                </Text>
+                <TouchableOpacity onPress={dismissTooltip} style={styles.tooltipCloseButton}>
+                  <MaterialIcons name="close" size={18} color={COLORS.white} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.tooltipArrow} />
+            </Animated.View>
           )}
+          
+          {filteredItems.length === 0 && !loading ? (
+            <View style={styles.emptyContainer}>
+              {searchQuery.length > 0 ? (
+                <>
+                  <Text style={styles.emptyText}>No items match your search</Text>
+                  <Text style={styles.emptySubText}>Try a different search term</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.emptyText}>No chats or rooms yet</Text>
+                  <Text style={styles.emptySubText}>Tap the + button to start</Text>
+                </>
+              )}
+            </View>
+          ) : (
+            <FlatList
+              data={filteredItems}
+              renderItem={renderItem}
+              keyExtractor={(item) => item.id}
+              style={styles.chatList}
+              contentContainerStyle={styles.chatListContent}
+            />
+          )}
+          
+          {/* FAB Group */}
+          <FAB.Group
+            open={fabOpen}
+            visible={true}
+            icon={fabOpen ? 'close' : 'plus'}
+            actions={[
+              {
+                icon: 'message-plus-outline',
+                label: 'Start New Chat',
+                onPress: () => navigation.navigate('ModelSelection'),
+              },
+              {
+                icon: 'account-group-outline',
+                label: 'Create Room',
+                onPress: () => navigation.navigate('RoomCreation'),
+              },
+            ]}
+            onStateChange={({ open }) => setFabOpen(open)}
+            onPress={() => {
+              if (fabOpen) { /* Close */ } else { /* Open */ }
+            }}
+            fabStyle={styles.fabStyle} 
+            backdropColor="rgba(0, 0, 0, 0.3)"
+          />
         </View>
-      ) : (
-        <FlatList
-          data={filteredChats}
-          renderItem={renderChatItem}
-          keyExtractor={(item) => item.id}
-          style={styles.chatList}
-          contentContainerStyle={styles.chatListContent}
-        />
-      )}
-      
-      <FAB
-        style={styles.fab}
-        icon="plus"
-        onPress={() => navigation.navigate('ModelSelection')}
-      />
-    </View>
+      </Portal>
+    </PaperProvider>
   );
 };
 
@@ -471,7 +532,7 @@ const styles = StyleSheet.create({
   listContent: {
     flexGrow: 1,
   },
-  chatItem: {
+  listItem: {
     flexDirection: 'row',
     padding: 16,
     borderBottomWidth: 1,
@@ -480,16 +541,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  chatInfo: {
+  itemInfo: {
     flex: 1,
   },
-  modelName: {
+  itemTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 4,
   },
-  lastMessage: {
+  itemSubtitle: {
     fontSize: 14,
+    color: COLORS.gray,
+  },
+  roomModels: {
+    fontSize: 12,
     color: COLORS.gray,
   },
   timestamp: {
@@ -497,11 +562,7 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     marginLeft: 8,
   },
-  fab: {
-    position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+  fabStyle: {
     backgroundColor: COLORS.primary,
   },
   emptyContainer: {

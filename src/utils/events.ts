@@ -39,5 +39,6 @@ export const eventEmitter = new EventEmitter();
 export const EVENT_TYPES = {
   MODEL_SELECTED: 'MODEL_SELECTED',
   CHATS_UPDATED: 'CHATS_UPDATED',
+  ROOMS_UPDATED: 'ROOMS_UPDATED',
   API_KEY_CHANGED: 'API_KEY_CHANGED'
 }; 
