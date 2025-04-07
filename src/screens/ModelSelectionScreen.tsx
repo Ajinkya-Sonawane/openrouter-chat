@@ -73,14 +73,36 @@ const ModelSelectionScreen: React.FC<ModelSelectionScreenProps> = ({
     }
   };
 
-  const handleModelSelection = (model: Model) => {
-    navigation.navigate('Chat', { modelId: model.id, modelName: model.name });
+  const handleModelSelect = async (model: Model) => {
+    try {
+      console.log('Model selected:', model.id, model.name);
+      
+      // First, check if a chat with this model already exists
+      const existingChats = await getChats();
+      const existingChat = existingChats.find(chat => chat.modelId === model.id);
+      
+      if (existingChat) {
+        console.log('Found existing chat for model:', model.id, 'Chat ID:', existingChat.id);
+        // Navigate to the existing chat instead of creating a new one
+        navigation.replace('Chat', { chatId: existingChat.id });
+      } else {
+        console.log('No existing chat found for model:', model.id, 'Creating new chat');
+        // Create a new chat by navigating to Chat screen with modelId and modelName
+        navigation.replace('Chat', {
+          modelId: model.id,
+          modelName: model.name
+        });
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      Alert.alert('Error', 'Failed to navigate to chat screen');
+    }
   };
 
   const renderModelItem = ({ item }: { item: Model }) => (
     <TouchableOpacity 
       style={styles.modelItem}
-      onPress={() => handleModelSelection(item)}
+      onPress={() => handleModelSelect(item)}
     >
       <View style={styles.modelIconContainer}>
         {item.image ? (
