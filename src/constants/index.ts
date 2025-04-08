@@ -39,6 +39,10 @@ export const COLORS = {
   gray: '#999999',
   lightGray: '#EEEEEE',
   error: '#FF0000',
+  success: '#34C759', // Added for MCP server status
+  border: '#E5E5EA', // Added for MCP server form
+  text: '#000000', // Added for MCP server text
+  textSecondary: '#8E8E93', // Added for MCP server secondary text
   bubble: {
     user: '#DCF8C6', // WhatsApp user message bubble
     assistant: '#FFFFFF', // WhatsApp received message bubble

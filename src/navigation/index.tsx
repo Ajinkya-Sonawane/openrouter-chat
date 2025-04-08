@@ -18,6 +18,7 @@ const RoomProfileScreen = require('../screens/RoomProfileScreen').default;
 const AboutScreen = require('../screens/AboutScreen').default;
 const RoomCreationScreen = require('../screens/RoomCreationScreen').default;
 const RoomChatScreen = require('../screens/RoomChatScreen').default;
+const MCPServersScreen = require('../screens/MCPServersScreen').default;
 
 export type RootStackParamList = {
   ChatList: undefined;
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   Settings: undefined;
   ModelProfile: { modelId: string; modelName: string };
   About: undefined;
+  MCPServers: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -55,6 +57,14 @@ const HeaderRightMenu: React.FC<HeaderRightMenuProps> = ({ navigation }) => {
           </TouchableOpacity>
         }
       >
+        <Menu.Item
+          onPress={() => {
+            setMenuVisible(false);
+            navigation.navigate('MCPServers');
+          }}
+          title="MCP Servers"
+          leadingIcon="server"
+        />        
         <Menu.Item
           onPress={() => {
             setMenuVisible(false);
@@ -149,6 +159,13 @@ const AppNavigator = () => {
           <Stack.Screen 
             name="RoomChat" 
             component={RoomChatScreen} 
+            options={() => ({ 
+              headerShown: true
+            })} 
+          />
+          <Stack.Screen 
+            name="MCPServers" 
+            component={MCPServersScreen} 
             options={() => ({ 
               headerShown: true
             })} 

@@ -1,11 +1,5 @@
-import { EventEmitter } from 'events';
+import { eventEmitter, EVENT_TYPES } from '../utils/events';
 
-// Create a singleton event emitter instance
-const eventEmitter = new EventEmitter();
-
-export const EVENTS = {
-  MODEL_SELECTED: 'model_selected',
-  CHATS_UPDATED: 'chats_updated'
-};
-
-export default eventEmitter; 
+// Re-export the event emitter and event types
+export default eventEmitter;
+export const EVENTS = EVENT_TYPES; 

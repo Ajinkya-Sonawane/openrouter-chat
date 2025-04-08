@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Chat, Model, Room } from '../types';
+import { Chat, Model, Room, MCPServer } from '../types';
 import { DEFAULT_MODELS } from '../constants';
-import { eventEmitter, EVENT_TYPES } from '../utils/events';
+import eventEmitter, { EVENTS } from './events';
 
 const CHATS_STORAGE_KEY = 'openrouter_chats';
 const MODELS_STORAGE_KEY = 'openrouter_models';
 const ROOMS_KEY = 'rooms'; // Key for storing rooms
+const MCP_SERVERS_KEY = 'mcp_servers';
 
 export const getChats = async (): Promise<Chat[]> => {
   try {
@@ -35,7 +36,7 @@ export const saveChat = async (chat: Chat): Promise<void> => {
     
     await AsyncStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify(chats));
     console.log('Chat saved successfully:', chat.id);
-    eventEmitter.emit(EVENT_TYPES.CHATS_UPDATED, chats);
+    eventEmitter.emit(EVENTS.CHATS_UPDATED, chats);
   } catch (error) {
     console.error('Error saving chat to storage:', error);
   }
@@ -47,7 +48,7 @@ export const deleteChat = async (chatId: string): Promise<void> => {
     const filteredChats = chats.filter(chat => chat.id !== chatId);
     await AsyncStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify(filteredChats));
     console.log('Chat deleted successfully:', chatId);
-    eventEmitter.emit(EVENT_TYPES.CHATS_UPDATED, filteredChats);
+    eventEmitter.emit(EVENTS.CHATS_UPDATED, filteredChats);
   } catch (error) {
     console.error('Error deleting chat from storage:', error);
   }
@@ -80,7 +81,7 @@ export const clearAllChats = async (): Promise<void> => {
     console.log('All chats cleared successfully');
     
     // Notify listeners that chats have been cleared
-    eventEmitter.emit(EVENT_TYPES.CHATS_UPDATED, []);
+    eventEmitter.emit(EVENTS.CHATS_UPDATED, []);
   } catch (error) {
     console.error('Error clearing chats:', error);
     throw new Error('Failed to clear chats');
@@ -101,8 +102,8 @@ export const clearAll = async (): Promise<void> => {
     console.log('All rooms cleared successfully');
     
     // Notify listeners that both chats and rooms have been cleared
-    eventEmitter.emit(EVENT_TYPES.CHATS_UPDATED, []);
-    eventEmitter.emit(EVENT_TYPES.ROOMS_UPDATED, []);
+    eventEmitter.emit(EVENTS.CHATS_UPDATED, []);
+    eventEmitter.emit(EVENTS.ROOMS_UPDATED, []);
     
     console.log('All data cleared successfully');
   } catch (error) {
@@ -140,7 +141,7 @@ export const saveRoom = async (room: Room): Promise<void> => {
     const jsonValue = JSON.stringify(rooms);
     await AsyncStorage.setItem(ROOMS_KEY, jsonValue);
     console.log('Room saved successfully:', room.id);
-    eventEmitter.emit(EVENT_TYPES.ROOMS_UPDATED, rooms); // Emit room update event
+    eventEmitter.emit(EVENTS.ROOMS_UPDATED, rooms); // Emit room update event
   } catch (e) {
     console.error('Failed to save room:', e);
   }
@@ -166,7 +167,7 @@ export const clearRoomChat = async (roomId: string): Promise<void> => {
       const jsonValue = JSON.stringify(rooms);
       await AsyncStorage.setItem(ROOMS_KEY, jsonValue);
       console.log('Room chat cleared successfully:', roomId);
-      eventEmitter.emit(EVENT_TYPES.ROOMS_UPDATED, rooms); // Emit room update event
+      eventEmitter.emit(EVENTS.ROOMS_UPDATED, rooms); // Emit room update event
       return;
     }
     
@@ -184,7 +185,7 @@ export const deleteRoom = async (roomId: string): Promise<void> => {
     const jsonValue = JSON.stringify(updatedRooms);
     await AsyncStorage.setItem(ROOMS_KEY, jsonValue);
     console.log('Room deleted successfully:', roomId);
-    eventEmitter.emit(EVENT_TYPES.ROOMS_UPDATED, updatedRooms); // Emit room update event
+    eventEmitter.emit(EVENTS.ROOMS_UPDATED, updatedRooms); // Emit room update event
   } catch (e) {
     console.error('Failed to delete room:', e);
   }
@@ -194,8 +195,51 @@ export const clearAllRooms = async (): Promise<void> => {
   try {
     await AsyncStorage.removeItem(ROOMS_KEY);
     console.log('All rooms cleared successfully.');
-    eventEmitter.emit(EVENT_TYPES.ROOMS_UPDATED, []); // Emit room update event
+    eventEmitter.emit(EVENTS.ROOMS_UPDATED, []); // Emit room update event
   } catch (e) {
     console.error('Failed to clear all rooms:', e);
+  }
+};
+
+export const getMCPServers = async (): Promise<MCPServer[]> => {
+  try {
+    const data = await AsyncStorage.getItem(MCP_SERVERS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error getting MCP servers from storage:', error);
+    return [];
+  }
+};
+
+export const saveMCPServer = async (server: MCPServer): Promise<void> => {
+  try {
+    const servers = await getMCPServers();
+    const serverIndex = servers.findIndex(s => s.id === server.id);
+    
+    if (serverIndex >= 0) {
+      // Update existing server
+      servers[serverIndex] = server;
+    } else {
+      // Add new server
+      servers.push(server);
+    }
+    
+    await AsyncStorage.setItem(MCP_SERVERS_KEY, JSON.stringify(servers));
+    console.log('MCP server saved successfully:', server.id);
+    eventEmitter.emit(EVENTS.MCP_SERVERS_UPDATED, servers);
+  } catch (error) {
+    console.error('Error saving MCP server to storage:', error);
+  }
+};
+
+export const deleteMCPServer = async (serverId: string): Promise<void> => {
+  try {
+    const servers = await getMCPServers();
+    const filteredServers = servers.filter(server => server.id !== serverId);
+    await AsyncStorage.setItem(MCP_SERVERS_KEY, JSON.stringify(filteredServers));
+    console.log('MCP server deleted successfully:', serverId);
+    eventEmitter.emit(EVENTS.MCP_SERVERS_UPDATED, filteredServers);
+  } catch (error) {
+    console.error('Error deleting MCP server from storage:', error);
   }
 }; 

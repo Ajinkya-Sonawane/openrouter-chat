@@ -50,4 +50,14 @@ export interface Room {
   messages: Message[];
   lastMessage?: string;
   lastMessageTime?: number;
+}
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  url: string;
+  apiKey?: string;
+  isEnabled: boolean;
+  description?: string;
+  lastUsed?: number;
 } 
